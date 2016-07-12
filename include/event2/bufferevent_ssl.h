@@ -35,6 +35,8 @@
 #include <event2/bufferevent.h>
 #include <event2/util.h>
 
+#include <mbedtls/ssl.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -52,7 +54,9 @@ enum bufferevent_ssl_state {
 	BUFFEREVENT_SSL_ACCEPTING = 2
 };
 
-#if defined(EVENT__HAVE_OPENSSL) || defined(EVENT_IN_DOXYGEN_)
+#if defined(EVENT__HAVE_SSL) || defined(EVENT_IN_DOXYGEN_)
+
+#if defined(EVENT__HAVE_OPENSSL)
 /**
    Create a new SSL bufferevent to send its data over another bufferevent.
 
@@ -122,8 +126,66 @@ EVENT2_EXPORT_SYMBOL
 int bufferevent_ssl_renegotiate(struct bufferevent *bev);
 
 /** Return the most recent OpenSSL error reported on an SSL bufferevent. */
+
 EVENT2_EXPORT_SYMBOL
 unsigned long bufferevent_get_openssl_error(struct bufferevent *bev);
+
+#else
+
+/**
+   Create a new SSL bufferevent to send its data over another bufferevent.
+
+   @param base An event_base to use to detect reading and writing.  It
+      must also be the base for the underlying bufferevent.
+   @param underlying A socket to use for this SSL
+   @param ssl A SSL* object from openssl.
+   @param state The current state of the SSL connection
+   @param options One or more bufferevent_options
+   @return A new bufferevent on success, or NULL on failure
+*/
+EVENT2_EXPORT_SYMBOL
+struct bufferevent *
+  bufferevent_mbedtls_filter_new(struct event_base *base,
+                                 struct bufferevent *underlying,
+                                 struct mbedtls_ssl_context *ssl,
+                                 enum bufferevent_ssl_state state,
+                                 int options);
+
+/**
+   Create a new SSL bufferevent to send its data over an SSL * on a socket.
+
+   @param base An event_base to use to detect reading and writing
+   @param fd A socket to use for this SSL
+   @param ssl A SSL* object from openssl.
+   @param state The current state of the SSL connection
+   @param options One or more bufferevent_options
+   @return A new bufferevent on success, or NULL on failure.
+*/
+EVENT2_EXPORT_SYMBOL
+struct bufferevent *
+  bufferevent_mbedtls_socket_new(struct event_base *base,
+                                 evutil_socket_t fd,
+                                 struct mbedtls_ssl_context *ssl,
+                                 enum bufferevent_ssl_state state,
+                                 int options);
+
+
+/** Return the underlying openssl SSL * object for an SSL bufferevent. */
+EVENT2_EXPORT_SYMBOL
+struct ssl_st *
+  bufferevent_mbedtls_get_ssl(struct bufferevent *bufev);
+
+/** Tells a bufferevent to begin SSL renegotiation. */
+EVENT2_EXPORT_SYMBOL
+int bufferevent_ssl_renegotiate(struct bufferevent *bev);
+
+/** Return the most recent OpenSSL error reported on an SSL bufferevent. */
+
+EVENT2_EXPORT_SYMBOL
+int bufferevent_mbedtls_geterror(struct bufferevent *bev);
+
+
+#endif
 
 #endif
 

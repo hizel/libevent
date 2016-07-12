@@ -202,6 +202,12 @@
 /* Define if the system has openssl */
 #cmakedefine EVENT__HAVE_OPENSSL
 
+/* Define if the system has openssl */
+#cmakedefine EVENT__HAVE_MBEDTLS
+
+/* Define if the system has ans ssl */
+#cmakedefine EVENT__HAVE_SSL
+
 /* Defines if the system has zlib */
 #cmakedefine EVENT__HAVE_ZLIB
 

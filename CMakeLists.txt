@@ -117,6 +117,9 @@ option(EVENT__DISABLE_THREAD_SUPPORT
 option(EVENT__DISABLE_OPENSSL
     "Define if libevent should build without support for OpenSSL encrpytion" OFF)
 
+option(EVENT__DISABLE_MBEDTLS
+    "Define if libevent should build without support for mbed TLS encrpytion" OFF)
+
 option(EVENT__DISABLE_BENCHMARK
     "Defines if libevent should build without the benchmark exectuables" OFF)
 
@@ -667,19 +670,49 @@ if(EVENT__HAVE_EVENT_PORTS)
     list(APPEND SRC_CORE evport.c)
 endif()
 
+if (NOT EVENT__DISABLE_OPENSSL AND
+        NOT EVENT__DISABLE_MBEDTLS)
+    message(FATAL_ERROR "Only one may be enabled, OpenSSL or mbed TLS")
+endif()
+
 if (NOT EVENT__DISABLE_OPENSSL)
     find_package(OpenSSL REQUIRED)
 
     set(EVENT__HAVE_OPENSSL 1)
+    set(EVENT__HAVE_SSL 1)
+    set(EVENT__SSL "OpenSSL")
 
-    message(STATUS "OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
-    message(STATUS "OpenSSL lib: ${OPENSSL_LIBRARIES}")
+    set(SSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR})
+    set(SSL_LIBRARIES ${OPENSSL_LIBRARIES})
 
-    include_directories(${OPENSSL_INCLUDE_DIR})
+    message(STATUS "OpenSSL include: ${SSL_INCLUDE_DIR}")
+    message(STATUS "OpenSSL lib: ${SSL_LIBRARIES}")
+
+    include_directories(${SSL_INCLUDE_DIR})
 
     list(APPEND SRC_CORE bufferevent_openssl.c)
     list(APPEND HDR_PUBLIC include/event2/bufferevent_ssl.h)
-    list(APPEND LIB_APPS ${OPENSSL_LIBRARIES})
+    list(APPEND LIB_APPS ${SSL_LIBRARIES})
+endif()
+
+if (NOT EVENT__DISABLE_MBEDTLS)
+    include(FindMbedTLS)
+    if(MBEDTLS_FOUND)
+        set(EVENT__HAVE_MBEDTLS 1)
+        set(EVENT__HAVE_SSL 1)
+        set(EVENT__SSL "mbedTLS")
+
+        set(SSL_INCLUDE_DIR ${MBEDTLS_INCLUDE_DIR})
+        set(SSL_LIBRARIES ${MBEDTLS_LIBRARIES})
+
+        message(STATUS "mbed TLS include: ${SSL_INCLUDE_DIR}")
+        message(STATUS "mbed TLS lib: ${SSL_LIBRARIES}")
+        include_directories(${SSL_INCLUDE_DIR})
+
+        list(APPEND SRC_CORE bufferevent_mbedtls.c)
+        list(APPEND HDR_PUBLIC include/event2/bufferevent_ssl.h)
+        list(APPEND LIB_APPS ${SSL_LIBRARIES})
+    endif()
 endif()
 
 if (NOT EVENT__DISABLE_THREAD_SUPPORT)
@@ -820,15 +853,15 @@ if (EVENT__BUILD_SHARED_LIBRARIES)
 
     set(EVENT_EXTRA_FOR_TEST event_extra_static)
 
-   target_link_libraries(event_core ${OPENSSL_LIBRARIES}
+   target_link_libraries(event_core ${SSL_LIBRARIES}
                                     ${CMAKE_THREAD_LIBS_INIT}
                                     ${LIB_PLATFORM})
 
-   target_link_libraries(event ${OPENSSL_LIBRARIES}
+   target_link_libraries(event ${SSL_LIBRARIES}
                                ${CMAKE_THREAD_LIBS_INIT}
                                ${LIB_PLATFORM})
 
-   target_link_libraries(event_extra ${OPENSSL_LIBRARIES}
+   target_link_libraries(event_extra ${SSL_LIBRARIES}
                                       ${CMAKE_THREAD_LIBS_INIT}
                                       ${LIB_PLATFORM})
 
@@ -862,8 +895,8 @@ if (NOT EVENT__DISABLE_SAMPLES)
         http-connect
         time-test)
 
-    if (NOT EVENT__DISABLE_OPENSSL AND OPENSSL_LIBRARIES)
-        set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
+    if (NOT EVENT__DISABLE_OPENSSL AND SSL_LIBRARIES)
+        set(CMAKE_REQUIRED_LIBRARIES ${SSL_LIBRARIES})
         CHECK_FUNCTION_EXISTS_EX(ERR_remove_thread_state EVENT__HAVE_ERR_REMOVE_THREAD_STATE)
         set(CMAKE_REQUIRED_LIBRARIES "")
 
@@ -985,7 +1018,7 @@ if (NOT EVENT__DISABLE_TESTS)
                 list(APPEND SRC_REGRESS test/regress_zlib.c)
             endif()
 
-            if (OPENSSL_LIBRARIES)
+            if (SSL_LIBRARIES)
                 list(APPEND SRC_REGRESS test/regress_ssl.c)
             endif()
 
@@ -1430,5 +1463,8 @@ message(STATUS "CMAKE_BUILD_TYPE:         " ${CMAKE_BUILD_TYPE} )
 message(STATUS "CMAKE_C_COMPILER:         " ${CMAKE_C_COMPILER} )
 message(STATUS "CMAKE_AR:                 " ${CMAKE_AR} )
 message(STATUS "CMAKE_RANLIB:             " ${CMAKE_RANLIB} )
+if(EVENT__SSL)
+    message(STATUS "EVENT__SSL:               " ${EVENT__SSL} )
+endif()
 message("")
 
